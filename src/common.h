@@ -10,13 +10,15 @@
 #include <stdlib.h>
 #include <stdbool.h>
 
+
 /**Gets the value of the bit in the given position*/
 #define GET_BIT(byte, pos)          ((BIT)((byte) >> (7 - (pos)) & 0x01))
 
 /**Sets value of the bit in the given position*/
-#define PUT_BIT(byte, bit, pos)     ((BIT)((bit == 0)\
+#define PUT_BIT(byte, bit, pos)     ((BIT)(((bit) == 0)\
                                         ? (~(1 << (7 - (pos))) & (byte))\
                                         : ((1 << (7 - (pos))) | (byte))))
+
 
 /**The filename of the current file*/
 #define __FILENAME__ (strrchr(__FILE__, '/') ? strrchr(__FILE__, '/') + 1 : __FILE__)

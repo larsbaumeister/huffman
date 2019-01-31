@@ -6,52 +6,29 @@
 
 void file_writer_write_char(FILE_WRITER *writer, unsigned char c)
 {
-    if(writer->buffer_pos >= OUT_BUFFER_SIZE)
-    {
-        fwrite(writer->buffer, sizeof(char), writer->buffer_pos, writer->file);
-        writer->buffer_pos = 0;
-        writer->bit_buffer_pos = 0;
-    }
-    writer->buffer[(writer->buffer_pos)++] = c;
+    file_writer_write_bit(writer, (c & 128) > 0);
+    file_writer_write_bit(writer, (c & 64) > 0);
+    file_writer_write_bit(writer, (c & 32) > 0);
+    file_writer_write_bit(writer, (c & 16) > 0);
+    file_writer_write_bit(writer, (c & 8) > 0);
+    file_writer_write_bit(writer, (c & 4) > 0);
+    file_writer_write_bit(writer, (c & 2) > 0);
+    file_writer_write_bit(writer, (c & 1) > 0);
 }
 
 void file_writer_write_bit(FILE_WRITER *writer, BIT b)
 {
-    if(writer->buffer_pos >= OUT_BUFFER_SIZE)
+    if((writer->buffer_bit_pos / 8) >= OUT_BUFFER_SIZE)
     {
-        //write the full buffer to the file
-        fwrite(writer->buffer, sizeof(char), writer->buffer_pos, writer->file);
-        writer->buffer_pos = 0;
-        writer->bit_buffer_pos = 0;
+        fwrite(writer->buffer, sizeof(char), OUT_BUFFER_SIZE, writer->file);
+        writer->buffer_bit_pos = 0;
     }
 
-    writer->buffer[writer->buffer_pos] = PUT_BIT(writer->buffer[writer->buffer_pos], b, (writer->bit_buffer_pos)++);
+    unsigned int pos = writer->buffer_bit_pos / 8;
+    unsigned int bit_pos = writer->buffer_bit_pos % 8;
+    writer->buffer[pos] = PUT_BIT(writer->buffer[pos], b, bit_pos);
 
-    if(writer->bit_buffer_pos == 8)
-    {
-        (writer->buffer_pos)++;
-        writer->bit_buffer_pos = 0;
-    }
-}
-
-void file_writer_write_int(FILE_WRITER *writer, unsigned int i)
-{
-    file_writer_write_char(writer, i >> (3 * 8) & 0xff);
-    file_writer_write_char(writer, i >> (2 * 8) & 0xff);
-    file_writer_write_char(writer, i >> (1 * 8) & 0xff);
-    file_writer_write_char(writer, i & 0xff);
-}
-
-void file_writer_write_uint64(FILE_WRITER *writer, uint64_t l)
-{
-    file_writer_write_char(writer, l >> (7 * 8) & 0xff);
-    file_writer_write_char(writer, l >> (6 * 8) & 0xff);
-    file_writer_write_char(writer, l >> (5 * 8) & 0xff);
-    file_writer_write_char(writer, l >> (4 * 8) & 0xff);
-    file_writer_write_char(writer, l >> (3 * 8) & 0xff);
-    file_writer_write_char(writer, l >> (2 * 8) & 0xff);
-    file_writer_write_char(writer, l >> (1 * 8) & 0xff);
-    file_writer_write_char(writer, l & 0xff);
+    writer->buffer_bit_pos++;
 }
 
 void file_writer_open(FILE_WRITER *writer, char *file_name)
@@ -62,18 +39,19 @@ void file_writer_open(FILE_WRITER *writer, char *file_name)
         perror(file_name);
         exit(HF_EXIT_IO_ERROR);
     }
-    writer->buffer_pos = 0;
-    writer->bit_buffer_pos = 0;
+    writer->buffer_bit_pos = 0;
 }
 
 void file_writer_close(FILE_WRITER *writer)
 {
-    while(writer->bit_buffer_pos != 0)
+    // fill the last byte with zeros
+    while((writer->buffer_bit_pos % 8) != 0)
     {
         file_writer_write_bit(writer, ZERO);
     }
 
-    fwrite(writer->buffer, sizeof(char), writer->buffer_pos, writer->file);
+    unsigned int size = ((writer->buffer_bit_pos) / 8);
+    fwrite(writer->buffer, sizeof(char), size, writer->file);
 
     fclose(writer->file);
 }

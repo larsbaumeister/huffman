@@ -68,3 +68,9 @@ void btree_print(BTREE* tree)
     btreenode_print(tree->head, tree->print_function);
     printf("\n");
 }
+
+unsigned int btree_number_of_elements(BTREE* tree)
+{
+    BTREE_NODE* root = btree_get_root(tree);
+    return btreenode_number_of_children(root) + 1;
+}

@@ -7,16 +7,13 @@
 
 #include "common.h"
 #include <stdbool.h>
-#include <stdint.h>
 
 #define OUT_BUFFER_SIZE 16384
 
 typedef struct
 {
-    unsigned int buffer_size;
-    unsigned int buffer_pos;
     unsigned char buffer[OUT_BUFFER_SIZE];
-    unsigned int bit_buffer_pos;
+    unsigned int buffer_bit_pos;
     FILE* file;
 }
 FILE_WRITER;
@@ -33,17 +30,6 @@ extern void file_writer_write_char(FILE_WRITER* writer, unsigned char c);
  */
 extern void file_writer_write_bit(FILE_WRITER* writer, BIT b);
 
-/**
- * Appends a integer to the <code>out_buffer</code>
- * @param i the integer to append
- */
-extern void file_writer_write_int(FILE_WRITER* writer, unsigned int i);
-
-/**
- * Appends a uint64 to the <code><out_buffer/code>
- * @param l the integer to append
- */
-extern void file_writer_write_uint64(FILE_WRITER* writer, uint64_t l);
 
 /**
  * Opens a file in write mode.<br>

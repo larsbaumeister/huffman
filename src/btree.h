@@ -61,4 +61,6 @@ extern BTREE *btree_merge(BTREE *left, BTREE *right, void *data);
  */
 extern void btree_print(BTREE *tree);
 
+extern unsigned int btree_number_of_elements(BTREE* tree);
+
 #endif

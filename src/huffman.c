@@ -95,6 +95,61 @@ unsigned char decode_next_char(BTREE_NODE* node, FILE_READER* reader)
     }
 }
 
+unsigned int calc_number_of_out_bits(BTREE_NODE* code_tree)
+{
+    unsigned int num_bits = 0;
+    BTREE_NODE* left = btreenode_get_left(code_tree);
+    if(left != NULL)
+    {
+        num_bits += calc_number_of_out_bits(left) + 1;
+    }
+
+    BTREE_NODE* right = btreenode_get_right(code_tree);
+    if(right != NULL)
+    {
+        num_bits += calc_number_of_out_bits(right) + 1;
+    }
+    return num_bits;
+}
+
+void write_tree_structure(BTREE_NODE* node, FILE_WRITER* writer)
+{
+    if(btreenode_is_leaf(node))
+    {
+        FREQUENCY* freq = btreenode_get_data(node);
+        file_writer_write_bit(writer, ONE);
+        file_writer_write_char(writer, freq->letter);
+    }
+    else
+    {
+        BTREE_NODE* left = btreenode_get_left(node);
+        BTREE_NODE* right = btreenode_get_right(node);
+
+        file_writer_write_bit(writer, ZERO);
+        write_tree_structure(left, writer);
+        write_tree_structure(right, writer);
+    }
+}
+
+BTREE_NODE* read_tree_structure(FILE_READER* reader)
+{
+    FREQUENCY* freq = hf_malloc(sizeof(FREQUENCY));
+    BTREE_NODE* node = btreenode_new(freq);
+    if(file_reader_read_bit(reader) == ONE)
+    {
+        btreenode_set_left(node, NULL);
+        btreenode_set_right(node, NULL);
+        freq->letter = file_reader_read_char(reader);
+    }
+    else
+    {
+        btreenode_set_left(node, read_tree_structure(reader));
+        btreenode_set_right(node, read_tree_structure(reader));
+        freq->letter = 0;
+    }
+    return node;
+}
+
 void encode(char *in_file, char* out_file)
 {
     DEBUG_LOG("Encoding started")
@@ -138,7 +193,6 @@ void encode(char *in_file, char* out_file)
     // build the huffman tree from the prev generated heap
     BTREE* left_tree = NULL;
     BTREE* right_tree = NULL;
-
 
     DEBUG_LOG("Building the code tree")
     //check if the heap is not empty, otherwise the program ends in an infinite loop
@@ -185,19 +239,29 @@ void encode(char *in_file, char* out_file)
     FILE_WRITER writer;
     file_writer_open(&writer, out_file);
 
-
-    //write the number number of following frequencies to the file
-    file_writer_write_int(&writer, number_of_letters);
-
-    //now write the count for a given char to the file
+    // calculate the number of bits used in the output
+    unsigned long num_bits = btree_number_of_elements(code_tree);
+    num_bits += 8 * number_of_letters;
     for(unsigned int i = 0; i < SIZE_OF_BYTE; i++)
     {
         if(char_counts[i] > 0)
         {
-            file_writer_write_char(&writer, i);
-            file_writer_write_int(&writer, char_counts[i]);
+            unsigned char* code = code_table[i];
+            unsigned char code_length = 0;
+            while(*code != '\\')
+            {
+                code_length++;
+                code++;
+            }
+            num_bits += code_length * char_counts[i];
         }
     }
+    unsigned char bits_used_in_last_byte = (unsigned char) num_bits % 8;
+    // write the number of bits, used in the last char
+    file_writer_write_char(&writer, bits_used_in_last_byte == 0 ? 8 : bits_used_in_last_byte);
+
+
+    write_tree_structure(root, &writer);
 
     //start encoding the file
     file_reader_open(&reader, in_file);
@@ -224,64 +288,16 @@ void decode(char *in_file, char *out_file)
     FILE_READER reader;
     file_reader_open(&reader, in_file);
 
-
-    BINARY_HEAP heap;
-    heap_init(&heap, (HEAP_ELEM_COMP)compare_tree, (HEAP_ELEM_PRINT)print_tree);
-
-    unsigned int number_of_characters = file_reader_read_int(&reader);
-    for(unsigned int i = 0; i < number_of_characters; i++)
-    {
-        FREQUENCY* freq = hf_malloc(sizeof(FREQUENCY));
-        freq->letter = file_reader_read_char(&reader);
-        freq->count = file_reader_read_int(&reader);
-
-        BTREE* tree = btree_new(freq, (DESTROY_DATA_FCT)frequency_destroy, (PRINT_DATA_FCT)frequency_print);
-        heap_insert(&heap, tree);
-    }
-
-    // build the huffman tree from the prev generated heap
-    BTREE* left_tree = NULL;
-    BTREE* right_tree = NULL;
-
-
-    DEBUG_LOG("Building the heap")
-    //check if the heap is not empty, otherwise the program ends in an infinite loop
-    if(heap_peek(&heap, (void**) &left_tree))
-    {
-        do
-        {
-            // extract two elements for the next iteration
-            heap_extract_min(&heap, (void**) &left_tree);
-            heap_extract_min(&heap, (void**) &right_tree);
-
-            // if two elements were found, merge them together
-            if(left_tree != NULL && right_tree != NULL)
-            {
-                FREQUENCY* left_freq = btreenode_get_data(btree_get_root(left_tree));
-                FREQUENCY* right_freq = btreenode_get_data(btree_get_root(right_tree));
-
-                FREQUENCY* merged_freq = hf_malloc(sizeof(FREQUENCY));
-                merged_freq->letter = 0;
-                merged_freq->count = left_freq->count + right_freq->count;
-                BTREE* merged_tree = btree_merge(left_tree, right_tree, merged_freq);
-                heap_insert(&heap, merged_tree);
-            }
-        }
-        while(!XOR(left_tree == NULL, right_tree == NULL));
-        // the head of the final tree is in left_tree after this loop
-
-    }
-    heap_destroy(&heap);
+    unsigned char number_of_remaining_bits = file_reader_read_char(&reader);
 
     DEBUG_LOG("Creating the code table")
-    BTREE* code_tree = left_tree;
-    BTREE_NODE* root_node = btree_get_root(code_tree);
+    BTREE_NODE* root_node = read_tree_structure(&reader);
 
 
     FILE_WRITER writer;
     file_writer_open(&writer, out_file);
 
-    while(file_reader_has_next_char(&reader))
+    while(file_reader_has_next_char(&reader) || ((reader.bits_read % 8)) < number_of_remaining_bits )
     {
         unsigned char decoded_char = decode_next_char(root_node, &reader);
         file_writer_write_char(&writer, decoded_char);
@@ -290,5 +306,5 @@ void decode(char *in_file, char *out_file)
     file_writer_close(&writer);
     file_reader_close(&reader);
 
-    btree_destroy(&code_tree, true);
+    btreenode_destroy(&root_node, (DESTROY_DATA_FCT) frequency_destroy);
 }

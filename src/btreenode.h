@@ -89,4 +89,6 @@ extern bool btreenode_set_right(BTREE_NODE *parent_node, BTREE_NODE *node);
  */
 extern void btreenode_print(const BTREE_NODE *node, PRINT_DATA_FCT print_data);
 
+extern unsigned int btreenode_number_of_children(const BTREE_NODE* node);
+
 #endif

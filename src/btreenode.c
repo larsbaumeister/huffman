@@ -129,3 +129,22 @@ void btreenode_print(const BTREE_NODE *node, PRINT_DATA_FCT print_data)
 {
     _btreenode_print(node, print_data, 0);
 }
+
+unsigned int btreenode_number_of_children(const BTREE_NODE* node)
+{
+    BTREE_NODE* left_node = btreenode_get_left(node);
+    BTREE_NODE* right_node = btreenode_get_right(node);
+
+    unsigned int num = 0;
+    if(left_node != NULL)
+    {
+        num += btreenode_number_of_children(left_node) + 1;
+    }
+
+    if(right_node != NULL)
+    {
+        num += btreenode_number_of_children(right_node) + 1;
+    }
+
+    return num;
+}

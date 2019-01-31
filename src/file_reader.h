@@ -6,7 +6,6 @@
 #define HUFFMAN_FILE_READER_H
 
 #include <stdbool.h>
-#include <stdint.h>
 #include <stdio.h>
 #include "common.h"
 
@@ -16,14 +15,11 @@ typedef struct
 {
     FILE* file;
 
-    unsigned long bytes_read;
+    unsigned long bits_read;
     unsigned long file_size;
-
-    unsigned int bit_buffer_pos;
     unsigned int buffer_size;
-    unsigned int buffer_pos;
 
-    unsigned char bit_buffer;
+    unsigned int buffer_bit_pos;
     unsigned char buffer[IN_BUFFER_SIZE];
 
 }
@@ -50,19 +46,6 @@ extern bool file_reader_has_next_bit(FILE_READER* reader);
  * @return the read bit
  */
 extern BIT file_reader_read_bit(FILE_READER* reader);
-
-/**
- * Reads an integer form the <code>in_buffer</code>
- * @return the read integer
- */
-extern unsigned int file_reader_read_int(FILE_READER* reader);
-
-
-/**
- * Reads a uint64 from the <code>in_buffer<code>
- * @return the read integer
- */
-extern uint64_t file_reader_read_uint64(FILE_READER* reader);
 
 /**
  * opens a file reader

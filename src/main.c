@@ -5,6 +5,8 @@
 #include <sys/stat.h>
 #include "huffman.h"
 #include "common.h"
+#include "file_writer.h"
+#include "file_reader.h"
 #include <unistd.h>
 #include <time.h>
 
@@ -130,3 +132,5 @@ int main(int argc, char** argv)
 
     return HF_EXIT_SUCCESS;
 }
+
+
