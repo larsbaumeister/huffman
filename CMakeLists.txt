@@ -18,8 +18,8 @@ add_executable(huffman
                 src/file_reader.h
                 src/file_writer.c
                 src/file_writer.h
-                src/binary_heap.h
-                src/binary_heap.c
+                src/bheap.h
+                src/bheap.c
                 src/btree.h
                 src/btree.c
                 src/btreenode.h

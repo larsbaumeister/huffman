@@ -7,3 +7,6 @@ huffman
 cmake-build-debug
 build
 dist
+
+clean.sh
+huffman.cbp

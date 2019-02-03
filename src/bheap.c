@@ -1,4 +1,4 @@
-#include "binary_heap.h"
+#include "bheap.h"
 #include "common.h"
 #include <stdbool.h>
 #include <stdlib.h>

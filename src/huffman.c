@@ -5,7 +5,7 @@
 #include <stdlib.h>
 #include <stdbool.h>
 #include "huffman.h"
-#include "binary_heap.h"
+#include "bheap.h"
 #include "file_reader.h"
 #include "common.h"
 #include "btree.h"
@@ -256,7 +256,9 @@ void encode(char *in_file, char* out_file)
             num_bits += code_length * char_counts[i];
         }
     }
-    unsigned char bits_used_in_last_byte = (unsigned char) num_bits % 8;
+
+    DEBUG_LOG("Encoding the file")
+    unsigned char bits_used_in_last_byte = (unsigned char) (num_bits % 8);
     // write the number of bits, used in the last char
     file_writer_write_char(&writer, bits_used_in_last_byte == 0 ? 8 : bits_used_in_last_byte);
 
@@ -294,6 +296,7 @@ void decode(char *in_file, char *out_file)
     BTREE_NODE* root_node = read_tree_structure(&reader);
 
 
+    DEBUG_LOG("Decoding the file")
     FILE_WRITER writer;
     file_writer_open(&writer, out_file);
 
