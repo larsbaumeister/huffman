@@ -226,61 +226,73 @@ void encode(char *in_file, char* out_file)
     //after merging the trees, the final tree is in left_tree
     BTREE* code_tree = left_tree;
     if(code_tree == NULL)
-        return;
-
-    BTREE_NODE* root = btree_get_root(code_tree);
-
-
-    DEBUG_LOG("Building the code table")
-    unsigned char code_table[SIZE_OF_BYTE][64];
-    fill_code_table(code_table, root);
-
-
-    FILE_WRITER writer;
-    file_writer_open(&writer, out_file);
-
-    // calculate the number of bits used in the output
-    unsigned long num_bits = btree_number_of_elements(code_tree);
-    num_bits += 8 * number_of_letters;
-    for(unsigned int i = 0; i < SIZE_OF_BYTE; i++)
     {
-        if(char_counts[i] > 0)
+        // special case, file is completely empty
+        FILE_WRITER writer;
+        file_writer_open(&writer, out_file);
+
+        file_writer_write_char(&writer, 1); // bits used in last byte of the encoded data
+        file_writer_write_bit(&writer, 1); // one tree node is required, even if there is no data
+        file_writer_write_char(&writer, 0); // set the tree node value to something, doesn't matter what
+
+        file_writer_close(&writer);
+    }
+    else
+    {
+        // normal case, file has some content
+        BTREE_NODE* root = btree_get_root(code_tree);
+
+        DEBUG_LOG("Building the code table")
+        unsigned char code_table[SIZE_OF_BYTE][64];
+        fill_code_table(code_table, root);
+
+
+        FILE_WRITER writer;
+        file_writer_open(&writer, out_file);
+
+        // calculate the number of bits used in the output
+        unsigned long num_bits = btree_number_of_elements(code_tree);
+        num_bits += 8 * number_of_letters;
+        for(unsigned int i = 0; i < SIZE_OF_BYTE; i++)
         {
-            unsigned char* code = code_table[i];
-            unsigned char code_length = 0;
-            while(*code != '\\')
+            if(char_counts[i] > 0)
             {
-                code_length++;
-                code++;
+                unsigned char* code = code_table[i];
+                unsigned char code_length = 0;
+                while(*code != '\\')
+                {
+                    code_length++;
+                    code++;
+                }
+                num_bits += code_length * char_counts[i];
             }
-            num_bits += code_length * char_counts[i];
         }
-    }
 
-    DEBUG_LOG("Encoding the file")
-    unsigned char bits_used_in_last_byte = (unsigned char) (num_bits % 8);
-    // write the number of bits, used in the last char
-    file_writer_write_char(&writer, bits_used_in_last_byte == 0 ? 8 : bits_used_in_last_byte);
+        DEBUG_LOG("Encoding the file")
+        unsigned char bits_used_in_last_byte = (unsigned char) (num_bits % 8);
+        // write the number of bits, used in the last char
+        file_writer_write_char(&writer, bits_used_in_last_byte == 0 ? 8 : bits_used_in_last_byte);
 
 
-    write_tree_structure(root, &writer);
+        write_tree_structure(root, &writer);
 
-    //start encoding the file
-    file_reader_open(&reader, in_file);
-    while(file_reader_has_next_char(&reader))
-    {
-        unsigned char c = file_reader_read_char(&reader);
-        unsigned char* code = code_table[c];
-
-        for(unsigned char* bit = code; *bit != '\\'; bit++)
+        //start encoding the file
+        file_reader_open(&reader, in_file);
+        while(file_reader_has_next_char(&reader))
         {
-            file_writer_write_bit(&writer, *bit);
-        }
-    }
-    file_writer_close(&writer);
-    file_reader_close(&reader);
+            unsigned char c = file_reader_read_char(&reader);
+            unsigned char* code = code_table[c];
 
-    btree_destroy(&code_tree, true);
+            for(unsigned char* bit = code; *bit != '\\'; bit++)
+            {
+                file_writer_write_bit(&writer, *bit);
+            }
+        }
+        file_writer_close(&writer);
+        file_reader_close(&reader);
+
+        btree_destroy(&code_tree, true);
+    }
 }
 
 void decode(char *in_file, char *out_file)
@@ -295,12 +307,11 @@ void decode(char *in_file, char *out_file)
     DEBUG_LOG("Creating the code table")
     BTREE_NODE* root_node = read_tree_structure(&reader);
 
-
     DEBUG_LOG("Decoding the file")
     FILE_WRITER writer;
     file_writer_open(&writer, out_file);
 
-    while(file_reader_has_next_char(&reader) || ((reader.bits_read % 8)) < number_of_remaining_bits )
+    while(file_reader_has_next_char(&reader) || (reader.bits_read % 8 != 0 && ((reader.bits_read % 8)) < number_of_remaining_bits) )
     {
         unsigned char decoded_char = decode_next_char(root_node, &reader);
         file_writer_write_char(&writer, decoded_char);
