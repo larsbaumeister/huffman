@@ -10,3 +10,6 @@ dist
 
 clean.sh
 huffman.cbp
+
+**/.directory
+.directory
